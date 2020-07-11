@@ -1,0 +1,103 @@
+---
+title: "Covid Data Notebook"
+output: html_notebook
+---
+
+### Goal
+The purpose of this notebook is to show the analysis of Covid data from the Virginia Department of Health
+
+```{r}
+library(ggplot2)
+```
+
+Read in raw data as a data frame
+
+```{r}
+rawData <- read.csv("VDH-COVID-19-PublicUseDataset-EventDate.csv", stringsAsFactors = FALSE)
+
+# Fix the date field
+rawData$FixedDate <- as.Date(rawData$Event.Date,format="%m/%d/%Y")
+```
+
+Now we build two new data frames: one with confirmed cases and one with probable cases and then merge them together. Before we merge them we change the column headings of the 2 dataframes. We also need to replace all of the NA values with 0's.
+
+```{r}
+# Build a data frame with just the confirmed cases
+confirmedCases <- subset(rawData, Case.Status == "Confirmed")
+
+# Build a data frame with just the probable cases
+probableCases <- subset(rawData, Case.Status == "Probable")
+
+# Change the column headings to reflect the two data sets
+col_headings          <- c('Event.Date',
+                           'Health.Planning.Region', 
+                           'Case.Status - Confirmed', 
+                           'Cases-confirmed', 
+                           'Hospitalizations-confirmed', 
+                           'Deaths-confirmed', 
+                           'FixedDate')
+col_headings2         <- c('Event.Date',
+                           'Health.Planning.Region', 
+                           'Case.Status - Probable', 
+                           'Cases-probable', 
+                           'Hospitalizations-probable', 
+                           'Deaths-probable', 
+                           'FixedDate')
+names(confirmedCases) <- col_headings
+names(probableCases)  <- col_headings2
+
+# Merge the two dataframes and build the new columns combining the data
+mergedData            <- merge(confirmedCases, 
+                               probableCases, 
+                               by = c("FixedDate","Health.Planning.Region"), 
+                               all.x = TRUE, 
+                               all.y = TRUE)
+mergedData[is.na(mergedData)] <- 0 # Replace all of the NA's with 0
+```
+
+
+
+```{r}
+mergedData$totalCases         <- mergedData$'Cases-confirmed' + 
+  mergedData$'Cases-probable'
+mergedData$totalHospitalized  <- mergedData$`Hospitalizations-confirmed` + 
+  mergedData$`Hospitalizations-probable`
+mergedData$totalDeaths        <- mergedData$`Deaths-confirmed` + 
+  mergedData$`Deaths-probable`
+```
+```{r}
+casesEastern   <- subset(mergedData, mergedData$Health.Planning.Region == "Eastern")
+casesCentral   <- subset(mergedData, mergedData$Health.Planning.Region == "Central")
+casesNorthern  <- subset(mergedData, mergedData$Health.Planning.Region == "Northern")
+```
+
+#### Calculate heard immunity rate of Eastern Virginia
+According to CDC nationwide IFR is 0.26%
+
+```{r}
+casesEastern$PercentHadit <- casesEastern$`Deaths-confirmed` / .0026
+```
+
+Total Cases Over Time
+```{r}
+totalCases_vs_Deaths_Plot = ggplot() + geom_line(data = mergedData, aes(x = FixedDate, y = totalCases), color='red') + geom_line(data = mergedData, aes(x = FixedDate, y = totalDeaths), color='green') 
+print(totalCases_vs_Deaths_Plot + ggtitle("Total Cases Over Time"))
+```
+
+
+```{r}
+totalCases_Eastern_Plot = ggplot() + geom_line(data = casesEastern, aes(x = FixedDate, y = totalCases), color='blue') + geom_line(data = casesEastern, aes(x = FixedDate, y = totalDeaths), color = 'green')
+print(totalCases_Eastern_Plot) + ggtitle("Total Cases, Eastern Virginia")
+totalCases_Central_Plot = ggplot(data = casesCentral, aes(x = FixedDate, y = totalCases)) + geom_line()
+print(totalCases_Central_Plot + ggtitle("Total Cases, Central Virginia"))
+totalDeaths_Eastern_Plot = ggplot(data = casesEastern, aes(x = FixedDate, y = totalDeaths)) + geom_line()
+print(totalDeaths_Eastern_Plot) + ggtitle("Total Deaths, Eastern Virginia")
+percent_hadit_Eastern = ggplot(data = casesEastern, aes(x = FixedDate, y = PercentHadit)) + geom_line()
+print(percent_hadit_Eastern) + ggtitle(" Total hadit")
+# Calculate heard immunity rate of Eastern Virginia, according to CDC nationwide IFR is 0.26%
+```
+
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
