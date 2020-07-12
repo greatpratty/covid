@@ -1,8 +1,8 @@
 ---
 title: "Covid Data Notebook"
 output:
-  html_notebook: default
   pdf_document: default
+  html_notebook: default
 ---
 
 ### Goal
@@ -14,7 +14,9 @@ library(ggplot2)
 
 ### Preparing the data
 
-Read in raw data as a data frame
+We read in raw data from a CSV as a dataframe in R. This data is provided on the Virginia Department of Health website:
+
+https://www.vdh.virginia.gov/coronavirus/
 
 ```{r}
 rawData <- read.csv("VDH-COVID-19-PublicUseDataset-EventDate.csv", stringsAsFactors = FALSE)
@@ -59,7 +61,7 @@ mergedData            <- merge(confirmedCases,
 mergedData[is.na(mergedData)] <- 0 # Replace all of the NA's with 0
 ```
 
-Here we build a new column with the total of confirmed and probable cases, deaths and hospitalizations.
+Next we build a new column with the total of cases, deaths and hospitalizations.
 
 ```{r}
 mergedData$totalCases         <- mergedData$'Cases-confirmed' + 
@@ -70,15 +72,19 @@ mergedData$totalDeaths        <- mergedData$`Deaths-confirmed` +
   mergedData$`Deaths-probable`
 ```
 
-Build 3 new dataframes for the different regions in Virginia:
+Build 5 new dataframes for the different regions in Virginia:
 
 ```{r}
 casesEastern   <- subset(mergedData, mergedData$Health.Planning.Region == "Eastern")
 casesCentral   <- subset(mergedData, mergedData$Health.Planning.Region == "Central")
 casesNorthern  <- subset(mergedData, mergedData$Health.Planning.Region == "Northern")
+casesNorthwest  <- subset(mergedData, mergedData$Health.Planning.Region == "Northwest")
+casesSouthwest  <- subset(mergedData, mergedData$Health.Planning.Region == "Southwest")
 ```
 
 ### Calculating the Totals for the State
+
+In order to get an idea of overall statistics for the state we will total the numbers in the raw data set.
 
 ```{r}
 totalCases            = sum(rawData$'Number.of.Cases')
@@ -93,7 +99,7 @@ Totals for the State:
 
 
 ### Calculate heard immunity rate of Eastern Virginia
-According to CDC nationwide IFR is 0.26%
+The CDC has released the infection fatility rate (IFR) as 0.26%. Using the total number of deaths in eastern Virginia we can can calculate the total number of people who have had COVID in this region.
 
 ```{r}
 numberHadit = sum(casesEastern$'totalDeaths') / .0026
@@ -101,31 +107,40 @@ numberHadit = sum(casesEastern$'totalDeaths') / .0026
 
 Individuals who have had Covid: `r format(numberHadit, scientific = FALSE)`
 
-Total Population in the Eastern Planning Region: 1,854,806. 
+Using the number of individuals who have had COVID divided by the total population of the Eastern region, we can calculate the heard immunity threshold of the region.
+
+Total Population in the Eastern Planning Region (as of 2016): 1,854,806. 
 Percentage of individuals who have had Covid: `r (numberHadit/1854806) * 100`%
 
+It looks like we are a couple of percentage points below the threshold needed for herd immunity.
+
 ### Total Cases Over Time
+
+Some additional data gleaned from the data set:
 ```{r}
 totalCases_vs_Deaths_Plot = ggplot() + geom_line(data = mergedData, aes(x = FixedDate, y = totalCases), color='red') + geom_line(data = mergedData, aes(x = FixedDate, y = totalDeaths), color='green') 
-print(totalCases_vs_Deaths_Plot + ggtitle("Total Cases Over Time"))
+print(totalCases_vs_Deaths_Plot + ggtitle("Total Cases Over Time in Virginia"))
 ```
+
 
 
 ```{r}
-totalCases_Eastern_Plot = ggplot() + geom_line(data = casesEastern, aes(x = FixedDate, y = totalCases), color='blue') + geom_line(data = casesEastern, aes(x = FixedDate, y = totalDeaths), color = 'green')
-print(totalCases_Eastern_Plot) + ggtitle("Total Cases, Eastern Virginia")
+totalCases_Eastern_Plot <- ggplot() + geom_line(data = casesEastern, aes(x = FixedDate, y = totalCases), color='blue') + 
+  geom_line(data = casesEastern, aes(x = FixedDate, y = totalDeaths), color = 'green') 
+print(totalCases_Eastern_Plot + ggtitle("Total Cases vs. Total Deaths, Eastern Virginia"))
 
 ```
+#### We can also seperate out the graph of deaths related to COVID to more closely examine the trend:
+
+```{r}
+totalDeaths_Eastern_Plot = ggplot(data = casesEastern, aes(x = FixedDate, y=totalDeaths)) + geom_line()
+print(totalDeaths_Eastern_Plot + ggtitle("Total Deaths, Eastern Virginia"))
+```
+
+### Some additional plots  
+
+
 ```{r}
 totalCases_Central_Plot = ggplot(data = casesCentral, aes(x = FixedDate, y = totalCases)) + geom_line()
 print(totalCases_Central_Plot + ggtitle("Total Cases, Central Virginia"))
-```
-```{r}
-totalDeaths_Eastern_Plot = ggplot(data = casesEastern, aes(x = FixedDate, y = totalDeaths)) + geom_line()
-print(totalDeaths_Eastern_Plot) + ggtitle("Total Deaths, Eastern Virginia")
-```
-```{r}
-percent_hadit_Eastern = ggplot(data = casesEastern, aes(x = FixedDate, y = numberHadit)) + geom_line()
-print(percent_hadit_Eastern) + ggtitle(" Total hadit")
-# Calculate heard immunity rate of Eastern Virginia, according to CDC nationwide IFR is 0.26%
 ```
